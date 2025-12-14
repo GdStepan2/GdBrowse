@@ -4,9 +4,6 @@ import configparser
 from pathlib import Path
 from typing import Optional
 
-# =========================
-# Папка данных (Документы/GdStepan2/GdBrowser/)
-# =========================
 def get_documents_dir() -> Path:
     home = Path.home()
     p1 = home / "Documents"
@@ -362,9 +359,7 @@ def save_cfg(cfg: configparser.ConfigParser):
         cfg.write(f)
 
 
-# =========================
-# Логи: если достигли лимита — очищаем файл
-# =========================
+
 class TruncatingFileLogger:
     def __init__(self, enabled: bool, max_bytes: int, log_path: Path):
         self.enabled = enabled
@@ -421,9 +416,7 @@ def truncate_if_big(path: Path, max_bytes: int):
         pass
 
 
-# =========================
-# До импортов PyQt6 читаем настройки логов
-# =========================
+
 ensure_app_files()
 CFG = load_cfg()
 
@@ -442,7 +435,6 @@ LOGGER.info("=== start ===")
 LOGGER.info(f"Data dir: {APP_DATA_DIR}")
 LOGGER.info(f"Logs enabled: {LOG_ENABLED}, max_mb: {LOG_MAX_MB}")
 
-# Chromium log — только если логи включены (иначе не пишем вообще)
 if LOG_ENABLED:
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join([
         "--enable-logging=stderr",
@@ -451,9 +443,6 @@ if LOG_ENABLED:
     ])
 
 
-# =========================
-# PyQt6 imports
-# =========================
 from PyQt6.QtCore import QUrl, QSize, Qt
 from PyQt6.QtGui import QKeySequence, QAction
 from PyQt6.QtWidgets import (
@@ -509,24 +498,20 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        # поисковик
         self.combo_engine = QComboBox()
         for n in SEARCH_ENGINES.keys():
             self.combo_engine.addItem(n)
         self.combo_engine.setCurrentText(self.cfg.get("search", "engine", fallback=DEFAULT_ENGINE))
         form.addRow("Поисковик:", self.combo_engine)
 
-        # подсказки (tooltips)
         self.chk_tooltips = QCheckBox("Показывать подсказки при наведении")
         self.chk_tooltips.setChecked(self.cfg.get("ui", "tooltips", fallback="true").strip().lower() == "true")
         form.addRow("Подсказки:", self.chk_tooltips)
 
-        # логи вкл/выкл
         self.chk_logs = QCheckBox("Включить логи")
         self.chk_logs.setChecked(self.cfg.get("logs", "enabled", fallback="true").strip().lower() == "true")
         form.addRow("Логи:", self.chk_logs)
 
-        # размер логов
         self.spin_mb = QSpinBox()
         self.spin_mb.setRange(1, 500)
         self.spin_mb.setValue(clamp_int(self.cfg.get("logs", "max_mb", fallback=str(DEFAULT_LOG_MB)),
@@ -536,7 +521,6 @@ class SettingsDialog(QDialog):
 
         layout.addLayout(form)
 
-        # пути
         row = QHBoxLayout()
         lab = QLabel(f"Папка данных:\n{APP_DATA_DIR}")
         lab.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -594,7 +578,6 @@ class BrowserTab(QWidget):
         self.page = BrowserPage(profile, new_tab_page_callback)
         self.view.setPage(self.page)
 
-        # FullScreen отключаем полностью (чтобы не было крашей)
         self.view.settings().setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, False)
         try:
             self.page.fullScreenRequested.connect(lambda req: req.reject())
@@ -616,10 +599,8 @@ class MiniBrowser(QMainWindow):
         self.setWindowTitle("GdBrowser")
         self.resize(1200, 780)
 
-        # UI settings
         self.tooltips_enabled = (self.cfg.get("ui", "tooltips", fallback="true").strip().lower() == "true")
 
-        # WebEngine profile: постоянные файлы
         self.profile = QWebEngineProfile("GdBrowserProfile", self)
         self.profile.setPersistentStoragePath(str(USER_DATA_DIR))
         self.profile.setCachePath(str(CACHE_DIR))
@@ -673,7 +654,6 @@ class MiniBrowser(QMainWindow):
         self.addAction(self._shortcut("Ctrl+T", lambda: self.add_tab(HOME_URL, switch=True)))
         self.addAction(self._shortcut("Ctrl+W", lambda: self.close_tab(self.tabs.currentIndex())))
 
-        # применяем подсказки
         self.apply_tooltips(self.tooltips_enabled)
 
         self.add_tab(HOME_URL, switch=True)
@@ -702,11 +682,9 @@ class MiniBrowser(QMainWindow):
         self.urlbar.setToolTip("Введите URL или запрос и нажмите Enter" if enabled else "")
         self.tb.setToolTip("Панель навигации" if enabled else "")
 
-        # Прокинем на стартовую страницу (для HTML tooltips)
         self.push_ui_tooltips_to_home()
 
     def push_ui_tooltips_to_home(self):
-        # обновить localStorage ui_tooltips на всех домашних вкладках
         val = "1" if self.tooltips_enabled else "0"
         js = (
             f"localStorage.setItem('ui_tooltips','{val}');"
@@ -785,10 +763,9 @@ class MiniBrowser(QMainWindow):
         self.cfg["logs"]["max_mb"] = str(dlg.get_logs_max_mb())
         save_cfg(self.cfg)
 
-        # применить подсказки сразу
+
         self.apply_tooltips(dlg.get_tooltips_enabled())
 
-        # обновить search_template на домашней странице
         for i in range(self.tabs.count()):
             t = self.tabs.widget(i)
             if t and t.view.url().toString().startswith(HOME_URL):
